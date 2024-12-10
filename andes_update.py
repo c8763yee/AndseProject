@@ -1,9 +1,9 @@
-from andes_epaper import GenerateEPaperImage
-from andes_file import PROSSES_FILE
-from andes_aes256 import AES_PROSSES
-from andes_mqtt import MQTT_SEND
-
 import zlib
+
+from andes_aes256 import AESProcess
+from andes_epaper import GenerateEPaperImage
+from andes_file import ProcessFile
+from andes_mqtt import MQTTSend
 
 # --------------- 流程圖 ---------------- #
 
@@ -16,13 +16,13 @@ import zlib
 # -------------------------------------- #
 
 # EPAPER(W、H)
-EPAPER_W, EPAPER_H = 640, 384
+EPAPER_W, EPAPER_H = 800, 480
 
 # EX data
 Payload = {
-    "number": "P-12345678",
+    "number": "P-114514",
     "id": "1",
-    "name": "XXXX-XXX-XXX",
+    "name": "MyGO!!!!!",
     "case": "frcture",
     "medication": "Sumatriptan, Sanikit",
     "notice": "none",
@@ -31,7 +31,7 @@ Payload = {
 }
 
 # EPAPER_payload
-Epaper_Payload = {
+epaper_payload = {
     "Location": Payload["location"],
     "Bed number": Payload["bed number"],
     "Number": Payload["number"],
@@ -45,21 +45,22 @@ Epaper_Payload = {
 QR_Payload = {"number": Payload["number"], "id": Payload["id"]}
 
 # Gen_Image
-GenerateEPaperImage(EPAPER_W, EPAPER_H).gen_image(Epaper_Payload)
+epaper = GenerateEPaperImage(EPAPER_W, EPAPER_H)
+epaper.gen_image(epaper_payload)
 
 # Gen_QRcode & Convert
-QR_Image = GenerateEPaperImage(EPAPER_W, EPAPER_H).add_qrcode(QR_Payload)
+qr_image = epaper.add_qrcode(QR_Payload)
 
 # Zlib_Compress
-Compress_Data = zlib.compress(QR_Image.byte_data, 9)
-print("Compress_Data len: ", len(Compress_Data))
+compressed_data = zlib.compress(qr_image.byte_data, 9)
+print("Compress_Data len: ", len(compressed_data))
 
 # AES_All_Image
-AES_Bytes = AES_PROSSES.gen_all_aes_data(Compress_Data)
-print("AES_Bytes len: ", len(AES_Bytes))
+aes_bytes = AESProcess.gen_all_aes_data(compressed_data)
+print("AES_Bytes len: ", len(aes_bytes))
 
 # Save_Json
-PROSSES_FILE.binary_image_2_base64_json(AES_Bytes, "CompressAllPhoto.json")
+ProcessFile.binary_image_2_base64_json(aes_bytes, "CompressAllPhoto.json")
 
 # MQTT_Send
-MQTT_SEND.send_data()
+MQTTSend.send_data()

@@ -1,12 +1,14 @@
+import json
+import time
+
 from paho.mqtt import client as MQTT
-import json, time
 
 broker_address = "10.20.1.227"
 port = 1883
 topic = "ACET/image/payload"
 
 
-class MQTT_SEND:
+class MQTTSend:
     def send_data():
         with open("CompressAllPhoto.json") as f:
             data = json.load(f)

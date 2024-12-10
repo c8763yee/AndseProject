@@ -1,7 +1,8 @@
-import json, base64
+import base64
+import json
 
 
-class PROSSES_FILE:
+class ProcessFile:
     @staticmethod  # 二進制圖像資料存json
     def binary_image_2_base64_json(byte_image, json_load):
         binary_image_data = {

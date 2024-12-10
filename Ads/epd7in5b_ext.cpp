@@ -1,80 +1,34 @@
 #include "epd7in5b_ext.h"
 
-#include "epdif.h"
+#include "epdif_V2.h"
 
-
-void DisplayFrame(unsigned char* image_data) {
-  unsigned char temp1, temp2;
-  epd.SendCommand(DATA_START_TRANSMISSION_1);
-
-  for (long i = 0; i < 384; i++) {
-    for (long j = 0; j < 160; j++) {
-      temp1 = pgm_read_byte(image_data + i*160 + j);
-      for (int k = 0; k < 2; k++) {
-        if ((temp1 & 0xC0) == 0xC0) {
-          temp2 = 0x03;                       // white
-        } else if ((temp1 & 0xC0) == 0x00) {
-          temp2 = 0x00;                       // black
-        } else {
-          temp2 = 0x04;                       // red
-        }
-        temp1 <<= 2;
-        temp2 <<= 4;
-
-        if((temp1 & 0xC0) == 0xC0) {
-          temp2 |= 0x03;                      // white
-        } else if ((temp1 & 0xC0) == 0x00) {
-          temp2 |= 0x00;                      // black
-        } else {
-          temp2 |= 0x04;                      // red
-        }
-        temp1 <<= 2;
-        epd.SendData(temp2);
+void DisplayFrame(unsigned char *pbuffer, unsigned long xStart, unsigned long yStart, unsigned long Picture_Width, unsigned long Picture_Height)
+// void DisplayFrame(unsigned char *pbuffer, unsigned long Block, unsigned long Picture_Width=epd.width, unsigned long Picture_Height=epd.height)
+{
+  // Full screen parameters
+  Serial.print("Displaying ");
+  Serial.print(Picture_Width);
+  Serial.print(" x ");
+  Serial.println(Picture_Height);
+  // Black and white part
+  epd.SendCommand(0x10);
+  for (unsigned long j = 0; j < Picture_Height; j++) {
+    for (unsigned long i = 0; i < Picture_Width / 8; i++) {
+      if ((j >= yStart) && (j < yStart + Picture_Height) && (i * 8 >= xStart) && (i * 8 < xStart + Picture_Width)) {
+        epd.SendData((pgm_read_byte(&(pbuffer[i - xStart / 8 + (Picture_Width) / 8 * (j - yStart)]))));
+      } else {
+        epd.SendData(0xff);
       }
     }
   }
 
-  epd.SendCommand(DISPLAY_REFRESH);
-  epd.EpdIf::DelayMs(100);
+  epd.SendCommand(0x12);
+  // epd.DelayMs(100);
+  delay(100);
   epd.WaitUntilIdle();
-};
+}
 
-void DisplayQuarterFrame(unsigned char* image_data) {
-  unsigned char temp1, temp2;
-  epd.SendCommand(DATA_START_TRANSMISSION_1);
+// Red part
+// epd.Displaypart(image_data, xStart, yStart, Picture_Width, Picture_Height, 1);
 
-  for (int r = 0; r < 2; r++) {  // Row * 2
-    for (long i = 0; i < 192; i++) {
-      for (int c = 0; c < 2; c++) {  // Col * 2
-        for (long j = 0; j < 80; j++) {
-          temp1 = pgm_read_byte(image_data + i*80 + j);
-          for (int k = 0; k < 2; k++) {
-            if ((temp1 & 0xC0) == 0xC0) {
-              temp2 = 0x03;                       // white
-            } else if ((temp1 & 0xC0) == 0x00) {
-              temp2 = 0x00;                       // black
-            } else {
-              temp2 = 0x04;                       // red
-            }
-            temp1 <<= 2;
-            temp2 <<= 4;
-
-            if((temp1 & 0xC0) == 0xC0) {
-              temp2 |= 0x03;                      // white
-            } else if ((temp1 & 0xC0) == 0x00) {
-              temp2 |= 0x00;                      // black
-            } else {
-              temp2 |= 0x04;                      // red
-            }
-            temp1 <<= 2;
-            epd.SendData(temp2); 
-          }
-        }
-      }
-    }
-  }
-
-  epd.SendCommand(DISPLAY_REFRESH);
-  epd.EpdIf::DelayMs(100);
-  epd.WaitUntilIdle();
-};
+// No need for explicit refresh as it's handled in Displaypart Block=1

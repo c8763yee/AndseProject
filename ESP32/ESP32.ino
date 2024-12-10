@@ -153,6 +153,7 @@ void loop()
         else if (rc == '0')
         {
             Serial.println("sended.");
+            send_status = false;
         }
         else
         {

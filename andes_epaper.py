@@ -1,27 +1,53 @@
-import cv2, qrcode, zlib
+import zlib
+from typing import Any, Dict, List, Optional, Text, Union
+
+import cv2
 import numpy as np
-from typing import Text, List, Dict
-from andes_aes256 import AES_PROSSES
+import qrcode
+from numpy.typing import NDArray
+from typing_extensions import Self
+
+from andes_aes256 import AESProcess
 
 
 class GenerateEPaperImage:
-    text_max_length: int = 16
-    color_depth: int = 2  # bit
-    color: Dict = {"white": 0b11, "red": 0b01, "black": 0b00}
-    image = None
-    img_data = None
-    byte_data = None
+    """電子紙圖像生成類別"""
 
-    def __init__(self, width: int = 640, height: int = 384, color: Dict = None):
+    text_max_length: int = 16
+    color_depth: int = 2
+    color: Dict[str, int] = {"white": 0b11, "red": 0b01, "black": 0b00}
+    image: Optional[NDArray[np.uint8]] = None
+    img_data: Optional[NDArray[np.uint8]] = None
+    byte_data: Optional[bytes] = None
+    result_image: Optional[NDArray[np.uint8]] = None
+    compress_data: Optional[bytes] = None
+
+    def __init__(
+        self,
+        width: int = 640,
+        height: int = 384,
+        color: Optional[Dict[str, int]] = None,
+    ) -> None:
+        """初始化函數
+        參數:
+            width: 圖像寬度
+            height: 圖像高度
+            color: 自定義顏色對應表
+        """
         self.width = width
         self.height = height
         if color:
             self.color = color
             self.color_depth = len(bin(max(color.values()))) - 2
 
-    # 顏色分類白紅黑
     @classmethod
     def _convert_color(cls, color_value: List[int], threshold: int = 128) -> int:
+        """顏色轉換方法
+        將RGB顏色值轉換為電子紙可用的顏色值
+        參數:
+            color_value: RGB顏色值列表
+            threshold: 顏色閾值
+        """
         if (
             color_value[0] > threshold
             and color_value[1] > threshold
@@ -33,9 +59,13 @@ class GenerateEPaperImage:
         else:
             return cls.color["black"]
 
-    # 圖像文字換行排版
     @classmethod
     def _split_text(cls, raw_text: Text) -> List[Text]:
+        """文字分割方法
+        將長文字依據最大長度分割為多行
+        參數:
+            raw_text: 原始文字
+        """
         text_list = [""]
         for word in raw_text.split("_"):
             word += " "
@@ -45,8 +75,12 @@ class GenerateEPaperImage:
                 text_list[-1] += word
         return [word.strip() for word in text_list]
 
-    # 圖像生成
-    def gen_image(self, data: Dict):
+    def gen_image(self, data: Dict[str, Any]) -> Self:
+        """生成圖像方法
+        將字典資料轉換為圖像
+        參數:
+            data: 要顯示的資料字典
+        """
         image = np.zeros((self.height, self.width, 3), np.uint8)
         image.fill(255)
         max_chars_per_line = 36
@@ -119,8 +153,12 @@ class GenerateEPaperImage:
         cv2.imwrite("./photo_temp/photo.png", image)
         return self
 
-    # QRcode生成
-    def gan_qrcode(self, encrypt_aes_data):  # QR資料
+    def generate_qrcode(self, encrypt_aes_data: Union[str, bytes]) -> None:
+        """生成QR碼方法
+        生成加密後的QR碼圖像
+        參數:
+            encrypt_aes_data: 加密後的資料
+        """
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -132,10 +170,14 @@ class GenerateEPaperImage:
         qr_img = qr.make_image(fill_color="black", back_color="white")
         qr_img.save(f"./photo_temp/AES_QRcode.png")
 
-    # QRcode加密與合併
-    def add_qrcode(self, qr_data):
-        encrypt_aes_data = AES_PROSSES.gen_aes_data(qr_data)
-        self.gan_qrcode(encrypt_aes_data)  # 在此AES加密QRcode
+    def add_qrcode(self, qr_data: Union[str, Dict[str, Any]]) -> Self:
+        """添加QR碼方法
+        將QR碼添加到主圖像中
+        參數:
+            qr_data: QR碼資料
+        """
+        encrypt_aes_data = AESProcess.gen_aes_data(qr_data)
+        self.generate_qrcode(encrypt_aes_data)  # 在此AES加密QRcode
         qr_image = cv2.imread("./photo_temp/AES_QRcode.png")
         e_paper_image = cv2.imread("./photo_temp/photo.png")
         qr_image_np = cv2.cvtColor(
@@ -150,20 +192,34 @@ class GenerateEPaperImage:
         self.convert_image_to_data()
         return self
 
-    # 圖像資料處理
-    def convert_image_to_data(self):
-        step = 8 // self.color_depth
-        image_length = self.result_image.shape[0] * self.result_image.shape[1] // step
+    def convert_image_to_data(self) -> Self:
+        """Convert image data for e-paper display
+        Args:
+            x_start: Starting X coordinate for partial update
+            y_start: Starting Y coordinate for partial update
+        """
+        # Ensure 1-bit color depth
+        self.color_depth = 1
 
-        self.img_data = np.zeros((image_length,), dtype=np.uint8)
-        for i in range(self.result_image.shape[0]):
-            for j in range(0, self.result_image.shape[1], step):
-                val = 0
-                for k in range(step):
-                    val |= self._convert_color(self.result_image[i][j + k])
-                    val <<= self.color_depth
-                val >>= self.color_depth
-                self.img_data[(i * self.result_image.shape[1] + j) // step] = val
+        width = self.result_image.shape[1]
+        height = self.result_image.shape[0]
+        bytes_per_line = width // 8
+
+        # Initialize byte array
+        self.img_data = np.zeros((bytes_per_line * height,), dtype=np.uint8)
+
+        # Convert image to bytes, 8 pixels per byte
+        for y in range(height):
+            for x in range(0, width, 8):
+                byte_val = 0
+                for bit in range(8):
+                    if x + bit < width:
+                        # Pack 8 pixels into one byte
+                        pixel = self._convert_color(self.result_image[y][x + bit])
+                        byte_val |= pixel << (7 - bit)  # MSB first
+
+                self.img_data[y * bytes_per_line + (x // 8)] = byte_val
+
         self.byte_data = self.img_data.tobytes()
         self.compress_data = zlib.compress(self.byte_data, 9)
         return self

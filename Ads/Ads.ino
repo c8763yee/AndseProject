@@ -4,7 +4,7 @@
 #include "miniz/miniz.c"
 #include <SoftwareSerial.h>
 #include <SPI.h>
-#include "epd7in5b.h"
+#include "epd7in5b_V2.h"
 #include "epd7in5b_ext.h"
 
 #include <Crypto.h>
@@ -36,7 +36,7 @@
 #define IMAGE_LENGTH EPD_WIDTH *EPD_HEIGHT / 8 * EPD_COLOR_DEEPTH
 #endif
 
-Epd epd;
+EpdV2 epd;
 
 SoftwareSerial N25Serial(2, 3); // RX, TX
 
@@ -214,8 +214,8 @@ void MinizDecompress(uint8_t *C_Data, size_t C_Length) // decompressData
     if (Result == MZ_OK)
     {
         Serial.println("[MinizDecompress] Miniz success:");
-        N25Serial.write('0');
         DisplayFrame(IMGBuf);
+        N25Serial.write('0');
     }
     else
     {
@@ -265,6 +265,7 @@ void loop()
     GetSerMsg();
     if (NewSerMsg)
     {
+      Serial.println("New message arrival");
         const char *SerData = DynamicBuffer;
         freeDynamicBuffer(&DynamicBuffer);
 
@@ -281,6 +282,7 @@ void loop()
             freeByteDynamicBuffer(&ByteDynamicBuffer);
             Serial.print("[loop] AESDecode D_Length: ");
             Serial.println(D_Length);
+            // epd.Reset();
             MinizDecompress(AESD_Data, D_Length);
         }
         else
@@ -290,4 +292,5 @@ void loop()
         }
         NewSerMsg = false;
     }
+    // epd.Sleep();
 }

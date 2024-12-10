@@ -1,10 +1,12 @@
-import json, secrets
+import json
+import secrets
 from base64 import b64encode
+
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad
 
 
-class AES_PROSSES:
+class AESProcess:
     # QRcode
     def gen_aes_data(data_payload):
         key = "imacGetTopRewardimacGetTopReward".encode("utf-8")
